@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Styled.ke | Client Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{--primary:#e60023;--dark:#111;--light:#fff;--gray:#f4f4f6;--muted:#777;--silver:#ededed}
+    *{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+    body{background:var(--gray);color:#222}
+    header{background:linear-gradient(135deg,var(--silver),#dcdcdc);padding:1.5rem 2rem;box-shadow:0 4px 20px rgba(0,0,0,.08);display:flex;align-items:center;gap:1.25rem}
+    .store{padding:2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2rem}
+    .product{background:#fff;border-radius:26px;box-shadow:0 18px 55px rgba(0,0,0,.12);overflow:hidden;position:relative;transition:transform .35s ease, box-shadow .35s ease}
+    .product:hover{transform:translateY(-6px);box-shadow:0 28px 70px rgba(0,0,0,.16)}
+    .product-media{aspect-ratio:3/4;position:relative;overflow:hidden}
+    .product-media img{transition:transform .5s ease;width:100%;height:100%;object-fit:cover}
+    .product:hover .product-media img{transform:scale(1.08)}
+    .quickview{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;background:linear-gradient(to top,rgba(0,0,0,.6),rgba(0,0,0,.15));transition:opacity .3s ease}
+    .quickview button{background:#fff;border:none;border-radius:999px;padding:.7rem 1.6rem;font-weight:700;cursor:pointer}
+    .product:hover .quickview{opacity:1}
+    .badge{position:absolute;top:14px;left:14px;padding:.4rem .85rem;border-radius:999px;font-size:.7rem;font-weight:700;color:#fff}
+    .badge.best{background:#e60023}.badge.new{background:#000}.badge.out{top:44px;background:#777}
+    .categories{display:flex;gap:.75rem;padding:1rem 2rem;background:#fff;position:sticky;top:0;z-index:10}
+    .categories button{border:none;padding:.6rem 1.25rem;border-radius:999px;cursor:pointer}
+    .categories .active{background:#111;color:#fff}
+    #sizePills button.active{background:#111;color:#fff}
+  </style>
+</head>
+<body>
+<header>
+  <div style="position:absolute;top:10px;right:20px;background:#111;color:#fff;padding:.35rem .9rem;border-radius:999px;font-size:.65rem;letter-spacing:.08em">CLIENT DEMO</div>
+  <img src="https://i.imgur.com/b2y3Rur.png" style="height:70px">
+  <h2 style="flex:1">Styled.ke</h2>
+  <div id="cartIcon" onclick="checkout()" style="position:relative;cursor:pointer;font-weight:700">
+    🛒 Cart
+    <span id="cartCount" style="position:absolute;top:-6px;right:-14px;background:#e60023;color:#fff;border-radius:999px;font-size:.65rem;padding:2px 6px;display:none">0</span>
+  </div>
+</header>
+
+<nav class="categories">
+  <button class="active" data-cat="All">All</button>
+  <button data-cat="Shift Dresses">Shift Dresses</button>
+  <button data-cat="Maxi Dresses">Maxi Dresses</button>
+</nav>
+
+<section id="store" class="store"></section>
+
+<script>
+// ================= DATA =================
+const products=[
+  {id:'dress1',name:'Chic Shift Dress',category:'Shift Dresses',price:1500,images:['https://i.imgur.com/IAi6TDM.jpeg','https://i.imgur.com/bSuy3mR.jpeg','https://i.imgur.com/ypbYlt2.jpeg'],badge:'best',stock:true,length:'45–48 in'},
+  {id:'dress2',name:'Relaxed Maxi Dress',category:'Maxi Dresses',price:1500,images:['https://i.imgur.com/Y4S8eIb.jpeg','https://i.imgur.com/9QO0Z9E.jpeg'],badge:'new',stock:false,length:'50–52 in'}
+];
+
+const store=document.getElementById('store');
+
+// ================= STORE =================
+function renderStore(list=products){
+  store.innerHTML='';
+  list.forEach(p=>{
+    store.innerHTML+=`
+    <div class="product">
+      ${p.badge?`<span class="badge ${p.badge}">${p.badge.toUpperCase()}</span>`:''}
+      ${!p.stock?'<span class="badge out">OUT OF STOCK</span>':''}
+      <div class="product-media" onmousemove="cycleImage(event,this)" onmouseleave="resetImage(this)">
+        <img src="${p.images[0]}" data-index="0">
+        <div class="quickview"><button onclick="openModal('${p.id}')" ${!p.stock?'disabled style="opacity:.6;cursor:not-allowed"':''}>Quick View</button></div>
+      </div>
+      <div class="product-info" style="padding:1.2rem 1.4rem">
+        <div style="font-weight:600;font-size:.95rem">${p.name}</div>
+        <div style="font-size:.75rem;color:#777">Length: ${p.length}</div>
+        <div style="font-weight:800">Ksh ${p.price}</div>
+      </div>
+    </div>`;
+  });
+}
+
+function filterCategory(cat){
+  document.querySelectorAll('.categories button').forEach(b=>b.classList.remove('active'));
+  const btn=document.querySelector(`[data-cat="${cat}"]`);
+  if(btn) btn.classList.add('active');
+  if(cat==='All') renderStore();
+  else renderStore(products.filter(p=>p.category===cat));
+}
+
+// ================= MODAL =================
+let selectedSize=null;
+let activeProduct=null;
+
+const modal=document.createElement('div');
+modal.style.cssText='position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.65);z-index:99';
+modal.innerHTML=`
+<div style="background:#fff;border-radius:30px;max-width:980px;width:92%;display:grid;grid-template-columns:1.1fr .9fr;gap:2.4rem;padding:2.6rem;position:relative">
+  <button onclick="closeModal()" style="position:absolute;top:18px;right:18px">×</button>
+  <img id="modalImg" style="width:100%;height:520px;border-radius:22px;object-fit:cover">
+  <div style="display:flex;flex-direction:column;gap:1rem">
+    <h2 id="modalName"></h2>
+    <div id="modalLength" style="color:#777"></div>
+    <h3 id="modalPrice"></h3>
+    <div>
+      <div style="font-weight:600">Select size</div>
+      <div id="sizePills" style="display:flex;gap:.5rem"></div>
+    </div>
+    <button id="addToCartBtn" disabled>ADD TO CART</button>
+  </div>
+</div>`;
+
+document.body.appendChild(modal);
+
+function openModal(id){
+  const p=products.find(x=>x.id===id);
+  if(!p||!p.stock) return;
+  activeProduct=p;selectedSize=null;
+  document.getElementById('modalImg').src=p.images[0];
+  document.getElementById('modalName').innerText=p.name;
+  document.getElementById('modalLength').innerText='Length: '+p.length;
+  document.getElementById('modalPrice').innerText='Ksh '+p.price;
+  const pills=document.getElementById('sizePills');
+  pills.innerHTML='';
+  ['S','M','L','XL'].forEach(size=>{
+    const b=document.createElement('button');
+    b.innerText=size;
+    b.onclick=()=>selectSize(b,size);
+    pills.appendChild(b);
+  });
+  const add=document.getElementById('addToCartBtn');
+  add.disabled=true;
+  add.onclick=addToCart;
+  modal.style.display='flex';
+}
+
+function selectSize(btn,size){
+  selectedSize=size;
+  document.querySelectorAll('#sizePills button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('addToCartBtn').disabled=false;
+}
+
+function closeModal(){modal.style.display='none';}
+
+// ================= IMAGE HOVER =================
+function cycleImage(e,wrap){
+  const img=wrap.querySelector('img');
+  const btn=wrap.closest('.product').querySelector('.quickview button');
+  if(!btn) return;
+  const idMatch=btn.getAttribute('onclick').match(/'(.*?)'/);
+  if(!idMatch) return;
+  const p=products.find(x=>x.id===idMatch[1]);
+  if(!p||p.images.length<2) return;
+  const index=Math.min(p.images.length-1,Math.floor((e.offsetX/wrap.clientWidth)*p.images.length));
+  if(img.dataset.index!=index){img.dataset.index=index;img.src=p.images[index];}
+}
+function resetImage(wrap){const img=wrap.querySelector('img');img.dataset.index=0;}
+
+// ================= CART =================
+const cart=[];
+
+function addToCart(){
+  if(!selectedSize) return;
+  const existing=cart.find(i=>i.id===activeProduct.id && i.size===selectedSize);
+  if(existing){existing.qty+=1;} else {cart.push({...activeProduct,size:selectedSize,qty:1});}
+  updateCartCount();
+  closeModal();
+}
+
+function updateCartCount(){
+  const count=cart.reduce((s,i)=>s+i.qty,0);
+  const badge=document.getElementById('cartCount');
+  badge.innerText=count;
+  badge.style.display=count>0?'inline-block':'none';
+}
+
+// ================= CHECKOUT =================
+const checkoutModal=document.createElement('div');
+checkoutModal.style.cssText='position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.7);z-index:120';
+checkoutModal.innerHTML=`
+<div style="background:#fff;border-radius:26px;width:420px;max-width:92%;padding:2rem;display:flex;flex-direction:column;gap:1rem;position:relative">
+  <button onclick="closeCheckout()" style="position:absolute;top:14px;right:14px">×</button>
+  <h3>Checkout</h3>
+  <input id="mpesaName" placeholder="M-Pesa Name" />
+  <input id="mpesaPhone" placeholder="Mobile Number" />
+  <textarea id="deliveryDesc" placeholder="Delivery description"></textarea>
+  <button onclick="confirmCheckout()" style="margin-top:.5rem">Confirm Order</button>
+</div>`;
+
+document.body.appendChild(checkoutModal);
+
+function checkout(){
+  if(cart.length===0){alert('Cart is empty');return;}
+  checkoutModal.style.display='flex';
+}
+
+function closeCheckout(){checkoutModal.style.display='none';}
+
+function confirmCheckout(){
+  const name=document.getElementById('mpesaName').value.trim();
+  const phone=document.getElementById('mpesaPhone').value.trim();
+  const desc=document.getElementById('deliveryDesc').value.trim();
+  if(!name||!phone||!desc){alert('Please fill all fields');return;}
+  const total=cart.reduce((s,i)=>s+i.price*i.qty,0);
+  closeCheckout();
+  showSuccess(name,phone,total);
+  cart.length=0;
+  updateCartCount();
+}
+
+// ================= INIT & TESTS =================
+renderStore();
+
+document.querySelectorAll('.categories button').forEach(btn=>btn.addEventListener('click',()=>filterCategory(btn.dataset.cat)));
+
+console.assert(typeof filterCategory==='function','filterCategory defined');
+console.assert(typeof openModal==='function','openModal defined');
+console.assert(typeof checkout==='function','checkout defined');
+console.assert(cart.length===0,'cart starts empty');
+
+filterCategory('All');
+console.assert(store.children.length===products.length,'renderStore shows all products');
+openModal(products[0].id);
+console.assert(document.getElementById('addToCartBtn').disabled===true,'size required before add to cart');
+selectSize(document.querySelector('#sizePills button'),'S');
+console.assert(document.getElementById('addToCartBtn').disabled===false,'add enabled after size select');
+closeModal();
+// ================= SUCCESS SCREEN (DEMO) =================
+const success=document.createElement('div');
+success.style.cssText='position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.75);z-index:200';
+success.innerHTML=`
+<div style="background:#fff;border-radius:30px;width:440px;max-width:92%;padding:2.4rem;text-align:center">
+  <h2 style="margin-bottom:.6rem">Order Received 🎉</h2>
+  <p id="successText" style="color:#555;font-size:.9rem"></p>
+  <div style="margin-top:1.4rem;font-weight:700">Payment: M‑Pesa (Demo)</div>
+  <button onclick="closeSuccess()" style="margin-top:1.6rem;padding:.6rem 1.6rem;border-radius:999px;border:none;background:#111;color:#fff">Continue Shopping</button>
+</div>`;
+document.body.appendChild(success);
+
+function showSuccess(name,phone,total){
+  document.getElementById('successText').innerText=`Thank you ${name}.
+Ksh ${total} will be requested from ${phone}.`;
+  success.style.display='flex';
+}
+function closeSuccess(){success.style.display='none';}
+
+</script>
+</body>
+</html>
